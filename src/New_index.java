@@ -1,3 +1,4 @@
+import java.awt.event.ItemEvent;
 import java.awt.geom.Point2D;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -10,50 +11,71 @@ public class New_index {
 	private static final double EARTH_RADIUS = 6371393; 
 	static int num_cluster; //number of clusters
 	static int num_lines; //number of data points
-	static ArrayList<clustered_point> points;
-	
-	static double []index;
+	static clustered_point[][]points; // all data points
+	static double []compact; //compactness
+	static double []index; //index value for every cluster
 
 	public static void main(String[] args) {
 		// read csv file
-		String filePath = new String("/Users/aaronkb/Desktop/512x512.csv");
+		long startTime = System.currentTimeMillis();
+		String filePath = new String("D:/科研相关/聚类评价算法/data/512x512.csv"); //remember to change the path
 		ReadCSV file_csv = new ReadCSV(filePath);
 		points = file_csv.read(filePath);
 		num_cluster = file_csv.num_cluster;
 		num_lines = file_csv.num_lines;
-		//stored points of index
-		clustered_point[][] classified_points = new clustered_point[num_cluster][];
 		//calculate Ck for every cluster
-		double []compact = new double[num_cluster];
+		compact = new double[num_cluster];
 		for (int i = 0; i < num_cluster; i++) {
-			compact[i] = cal_c(i);
+			compact[i] = cal_c(i); 
+			System.out.println("compactness[" + i + "]: " + compact[i]);
 		}
+		
 		//calculate distance for the closet point of every two clusters
 		double [][]dist = new double[num_cluster][num_cluster];
 		dist = calMinDist();
 		//calculate index i for every cluster
 		index = new double[num_cluster];
 		for (int i = 0; i < num_cluster; i++) {
-			index[i] = calIndexI(i);
+			index[i] = calIndexI(i,dist);
 		}
 		// calculate index for all clusters
-		double index_all = calIndexI();
-		System.out.print(index_all);
+		double index_all = calIndex();
+		long endTime = System.currentTimeMillis();
+		System.out.println("Total time cost: " + (endTime - startTime));
+		System.out.println("result: " + index_all);
 		
 	}
 
-	private static double calIndexI() {
-		// TODO Auto-generated method stub
-		return 0;
+	private static double calIndex() {
+		// calculate new_index value as final result
+		double result = index[0];
+		for(double item : index) {
+			if(item <= result) {
+				result = item;
+			}
+		}
+		return result;
 	}
 
-	private static double calIndexI(int i) {
-		// TODO Auto-generated method stub
-		return 0;
+	private static double calIndexI(int index, double[][] dist) {
+		// calculate new_index value for cluster i
+		double result = 99999999;
+		for(int i = 0; i < num_cluster; i++) {
+			if(index == i) {
+				continue;
+			}
+			double temp = (compact[index] * points[index].length + compact[i] * points[i].length) 
+					/ (points[index].length + points[i].length);
+			temp = temp * dist[index][i];
+			if(temp <= result) {
+				result = temp;
+			}
+		}
+		return result;
 	}
 
 	private static double[][] calMinDist() {
-		// TODO Auto-generated method stub
+		// calculate min dist for all different clusters
 		double [][]dist = new double[num_cluster][num_cluster];
 		for(int i = 0; i < num_cluster; i++) {
 			for(int j = 0; j < num_cluster; j++) {
@@ -61,9 +83,14 @@ public class New_index {
 					//already calculated
 					dist[i][j] = dist[j][i];
 				}
+				else if(i == j) {
+					//no need to compute dist of the two same clusters
+					dist[i][j] = -1;
+				}
 				else {
 					//calculate dist ij
-					dist[i][j] = calDistIJ(i+1,j+1);
+					dist[i][j] = calDistIJ(i,j);
+					System.out.println("mindist[" + i + "," + j +  "]: " + dist[i][j]);
 				}
 			}
 		}
@@ -71,21 +98,39 @@ public class New_index {
 	}
 
 	private static double calDistIJ(int index_i, int index_j) {
-		// TODO Auto-generated method stub
-		return 0;
+		// calculate min dist for two different clusters
+		double min_dist = 999999;
+		for(int i = 0; i <points[index_i].length; i ++) {
+			for(int j = 0; j < points[index_j].length; j++) {
+				double dist = getDistance(points[index_i][i].point, points[index_j][j].point);
+				if(dist <= min_dist) {
+					min_dist = dist;
+				}
+				
+			}
+		}
+		return min_dist;
 	}
 
 	private static double cal_c(int index) {
 		// calculate compactness parameter for cluster i
-		double c;
-		int count = 0;
-		for(clustered_point cpoint : points) {
-			if(cpoint.index == index) {
-				count ++;
-				 
-			}	        
+		double max_dist = -1;
+		for(int i = 0; i <points[index].length; i ++) {
+			for(int j = 0; j < points[index].length; j++) {
+				if(index == 1) {
+					int x = 0;
+				}
+				if(i > j) continue; //compute half of the matrix to save time
+				else {
+					double dist = getDistance(points[index][i].point, points[index][j].point);
+					if(dist >= max_dist) {
+						max_dist = dist;
+					}
+				}
+			}
 		}
-		return 0;
+		
+		return 1.0 / max_dist;
 	}
 	
 	public static double getDistance(Point2D pointA, Point2D pointB) {
@@ -93,7 +138,6 @@ public class New_index {
 	    double radiansAY = Math.toRadians(pointA.getY()); 
 	    double radiansBX = Math.toRadians(pointB.getX()); 
 	    double radiansBY = Math.toRadians(pointB.getY()); 
-
 	    double cos = Math.cos(radiansAY) * Math.cos(radiansBY) * Math.cos(radiansAX - radiansBX)
 	            + Math.sin(radiansAY) * Math.sin(radiansBY);
 	    double acos = Math.acos(cos);
@@ -110,7 +154,7 @@ class ReadCSV{
 	public ReadCSV(String file) {
 		filePath = file;
 	}
-	public ArrayList<clustered_point> read(String file) {
+	public clustered_point[][] read(String file) {
 		try {
 			//read file
 			BufferedReader reader = new BufferedReader(new FileReader(filePath));
@@ -118,10 +162,8 @@ class ReadCSV{
 			reader2.skip(Long.MAX_VALUE);
 			num_lines = reader2.getLineNumber();
 //			System.out.print(num_lines);
-			ArrayList<clustered_point> points = new ArrayList<clustered_point>();
 			String line = null;
 			clustered_point[][] classified_points;
-			int flag = 1;
 			int count = 0;
 			//read first line to get num of clusters
 			line = reader.readLine();
@@ -130,10 +172,7 @@ class ReadCSV{
 			int index = num_cluster;
 			classified_points = new clustered_point[num_cluster][];
 			count ++;
-			
-			Point2D pointtemp = new Point2D.Double(Double.parseDouble(item[0]),Double.parseDouble(item[1]));
-			clustered_point ptemp = new clustered_point(pointtemp, Integer.parseInt(item[2]));
-			points.add(ptemp);
+			int flag = 1;
 			//read the rest lines to initialize the array
 			while((line = reader.readLine()) != null) {
 				item = line.split(",");
@@ -141,18 +180,22 @@ class ReadCSV{
 					count ++;
 				}
 				else {
-					classified_points[index - 1] = new clustered_point[count];
+					if(flag == 1) {
+						classified_points[index - 1] = new clustered_point[count];
+						flag = 0;
+					}
+					else {
+						classified_points[index - 1] = new clustered_point[count+1];
+					}
+					
 					index = Integer.parseInt(item[2]);	
 					count = 0;
 				}
-				Point2D point = new Point2D.Double(Double.parseDouble(item[0]),Double.parseDouble(item[1]));
-				clustered_point p = new clustered_point(point, Integer.parseInt(item[2]));
-				
-				points.add(p);
 			}
-			classified_points[index - 1] = new clustered_point[count];
+			classified_points[index - 1] = new clustered_point[count + 1];
 			BufferedReader reader3 = new BufferedReader(new FileReader(filePath));
 			int i = num_cluster - 1,j = 0;
+			//read the data from file
 			while((line = reader3.readLine()) != null) {
 				item = line.split(",");
 				Point2D point = new Point2D.Double(Double.parseDouble(item[0]),Double.parseDouble(item[1]));
@@ -163,18 +206,12 @@ class ReadCSV{
 					j = 0;
 				}
 				classified_points[i][j] = new clustered_point(point, Integer.parseInt(item[2]));
-				j++;
-				if(i ==0) {
-					int x = 1;
-					
-				}
-				
+				j++;		
 			}
-			System.out.printf("size:%d\n",points.size());
 			reader.close();
 			reader2.close();
 			reader3.close();
-			return points;
+			return classified_points;
 		}
 
 		catch(IOException e){
@@ -182,7 +219,6 @@ class ReadCSV{
 		}
 		return null;
 	}
-	
 }
 class clustered_point{
 	Point2D point;
