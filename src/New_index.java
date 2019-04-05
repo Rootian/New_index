@@ -1,33 +1,59 @@
 import java.awt.event.ItemEvent;
 import java.awt.geom.Point2D;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.LineNumberReader;
+import java.nio.file.Path;
 import java.util.ArrayList;
-
+import java.io.FileOutputStream;  
+import java.io.PrintStream; 
+import java.io.FileNotFoundException;
 
 public class New_index {
 	private static final double EARTH_RADIUS = 6371393; 
 	static int num_cluster; //number of clusters
-	static int num_lines; //number of data points
 	static clustered_point[][]points; // all data points
 	static double []compact; //compactness
 	static double []index; //index value for every cluster
 
 	public static void main(String[] args) {
 		// read csv file
+		String filePath1 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\dbscan1.csv"); //remember to change the path
+		String filePath2 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\dbscan2.csv");
+		String filePath3 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\dbscan3.csv");
+		String filePath4 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\dbscan4.csv");
+		String filePath5 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\hubei_512.csv");
+		String filePath6 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\hubei_1024.csv");
+		String filePath7 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\hubei_2048.csv");
+		String filePath8 = new String("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\hubei_4096.csv");
+		String [] filePath = {filePath1,filePath2,filePath3,filePath4,filePath5,filePath6,filePath7,filePath8};
+		for(int i = 0; i < 4; i ++) {
+			//calculate new index for each data set
+			computeIndex(i,filePath);
+		}
+		
+		
+	}
+
+	private static void computeIndex(int fileId, String[] filePath) {
+		// compute new index for data set i
+		//set all global var to null
+		System.out.println("fileID:[" + fileId +"]");
+		compact = null;
+		points = null;
+		index = null;
+		
 		long startTime = System.currentTimeMillis();
-		String filePath = new String("D:/科研相关/聚类评价算法/data/512x512.csv"); //remember to change the path
-		ReadCSV file_csv = new ReadCSV(filePath);
-		points = file_csv.read(filePath);
+		ReadCSV file_csv = new ReadCSV(filePath[fileId]);
+		points = file_csv.read(filePath[fileId]);
 		num_cluster = file_csv.num_cluster;
-		num_lines = file_csv.num_lines;
 		//calculate Ck for every cluster
 		compact = new double[num_cluster];
 		for (int i = 0; i < num_cluster; i++) {
 			compact[i] = cal_c(i); 
-			System.out.println("compactness[" + i + "]: " + compact[i]);
+//			System.out.println("compactness[" + i + "]: " + compact[i]);
 		}
 		
 		//calculate distance for the closet point of every two clusters
@@ -41,8 +67,18 @@ public class New_index {
 		// calculate index for all clusters
 		double index_all = calIndex();
 		long endTime = System.currentTimeMillis();
-		System.out.println("Total time cost: " + (endTime - startTime));
-		System.out.println("result: " + index_all);
+		try {
+			File file = new File("D:\\科研相关\\聚类评价算法\\newHubei_enter\\Hubei_enter\\new_index.txt");
+			FileOutputStream Out = new FileOutputStream(file,true);	
+			String content = "Total time cost for file [" + fileId + "]: " + (endTime - startTime) + "\n";
+			Out.write(content.getBytes());
+			content = "result of file [" + fileId + "]: " + index_all + "\n";
+			Out.write(content.getBytes());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		
 	}
 
@@ -90,7 +126,7 @@ public class New_index {
 				else {
 					//calculate dist ij
 					dist[i][j] = calDistIJ(i,j);
-					System.out.println("mindist[" + i + "," + j +  "]: " + dist[i][j]);
+//					System.out.println("mindist[" + i + "," + j +  "]: " + dist[i][j]);
 				}
 			}
 		}
@@ -117,9 +153,6 @@ public class New_index {
 		double max_dist = -1;
 		for(int i = 0; i <points[index].length; i ++) {
 			for(int j = 0; j < points[index].length; j++) {
-				if(index == 1) {
-					int x = 0;
-				}
 				if(i > j) continue; //compute half of the matrix to save time
 				else {
 					double dist = getDistance(points[index][i].point, points[index][j].point);
@@ -150,7 +183,6 @@ public class New_index {
 class ReadCSV{
 	String filePath;
 	int num_cluster;
-	int num_lines;
 	public ReadCSV(String file) {
 		filePath = file;
 	}
@@ -158,9 +190,6 @@ class ReadCSV{
 		try {
 			//read file
 			BufferedReader reader = new BufferedReader(new FileReader(filePath));
-			LineNumberReader reader2 = new LineNumberReader(new FileReader(filePath));
-			reader2.skip(Long.MAX_VALUE);
-			num_lines = reader2.getLineNumber();
 //			System.out.print(num_lines);
 			String line = null;
 			clustered_point[][] classified_points;
@@ -209,7 +238,6 @@ class ReadCSV{
 				j++;		
 			}
 			reader.close();
-			reader2.close();
 			reader3.close();
 			return classified_points;
 		}
